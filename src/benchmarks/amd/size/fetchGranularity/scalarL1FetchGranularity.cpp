@@ -18,6 +18,36 @@ __global__ void scalarL1FetchGranularityKernel(uint32_t *timingResults, uint32_t
 
     for (uint32_t k = 0; k < SAMPLE_SIZE; ++k) {
         #ifdef __HIP_PLATFORM_AMD__
+        uint32_t start, end;
+        uint32_t *addr = arr16384AscStride0 + index;
+
+        asm volatile(
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+            "s_getreg_b32 %0, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+            "s_load_dword %2, %3, 0\n\t" // index = *addr;
+
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+            "s_getreg_b32 %1, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+            "s_add_u32 %2, %2, %4\n\t" // index = index + stride
+
+            // Last syncs
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+
+            : "+s"(start) // uint64_t
+            , "+s"(end) // uint64_t
+            , "+s"(index) // uint32_t
+            , "+s"(addr) // uint32_t*
+            , "+s"(stride) // uint32_t
+            :
+            : "memory"
+        );
+        s_timings[k] = end - start;
+        #elif 0
         uint64_t start, end;
         uint32_t *addr = arr16384AscStride0 + index;
 

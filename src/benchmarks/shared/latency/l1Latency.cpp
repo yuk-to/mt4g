@@ -30,6 +30,26 @@ __global__ void l1LatencyKernel(uint32_t *pChaseArray, uint32_t *timingResults) 
     for (uint32_t i = 0; i < SAMPLE_SIZE; ++i) {
         #ifdef __HIP_PLATFORM_AMD__
         uint32_t *addr = pChaseArray + index;
+        uint32_t start, end;
+        asm volatile (
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+            "s_getreg_b32 %0, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+            "flat_load_dword %1, %3\n\t"
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+            "s_getreg_b32 %2, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+            "s_waitcnt lgkmcnt(0)\n\t"
+            "s_waitcnt vmcnt(0)\n\t"
+            : "+s"(start)
+            , "+v"(index)
+            , "+s"(end)
+            , "+v"(addr)
+            :
+            : "memory"
+        );
+        #elif 0
+        uint32_t *addr = pChaseArray + index;
         uint64_t start, end;
         asm volatile (
             "s_waitcnt lgkmcnt(0)\n\t"

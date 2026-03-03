@@ -114,6 +114,34 @@ __global__ void cuShareScalarL1Kernel(uint32_t *pChaseArrayBaseCU, uint32_t *pCh
         //second round
         for (uint32_t k = 0; k < measureLength; ++k) {
             #ifdef __HIP_PLATFORM_AMD__
+            uint32_t start, end;
+            uint32_t *addr = pChaseArrayBaseCU + index;
+
+            asm volatile(
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+                "s_getreg_b32 %0, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+                "s_load_dword %2, %3, 0\n\t" // index = *addr;
+
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+                "s_getreg_b32 %1, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+                // Last syncs
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+
+                : "+s"(start) // uint64_t
+                , "+s"(end) // uint64_t
+                , "+s"(index) //uint32_t
+                , "+s"(addr) // uint32_t*
+                :
+                : "memory"
+            );
+
+            s_timingResultsBaseCU[k] = end - start;
+            #elif 0
             uint64_t start, end;
             uint32_t *addr = pChaseArrayBaseCU + index;
 
@@ -153,6 +181,34 @@ __global__ void cuShareScalarL1Kernel(uint32_t *pChaseArrayBaseCU, uint32_t *pCh
         //second round
         for (uint32_t k = 0; k < measureLength; ++k) {
             #ifdef __HIP_PLATFORM_AMD__
+            uint32_t start, end;
+            uint32_t *addr = pChaseArrayTestCU + index;
+
+            asm volatile(
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+                "s_getreg_b32 %0, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+                "s_load_dword %2, %3, 0\n\t" // index = *addr;
+
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+                "s_getreg_b32 %1, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+
+                // Last syncs
+                "s_waitcnt lgkmcnt(0)\n\t"
+                "s_waitcnt vmcnt(0)\n\t"
+
+                : "+s"(start) // uint64_t
+                , "+s"(end) // uint64_t
+                , "+s"(index) //uint32_t
+                , "+s"(addr) // uint32_t*
+                :
+                : "memory"
+            );
+
+            s_timingResultsTestCU[k] = end - start;
+            #elif 0
             uint64_t start, end;
             uint32_t *addr = pChaseArrayTestCU + index;
 

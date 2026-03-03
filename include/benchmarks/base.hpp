@@ -64,6 +64,17 @@ __device__ __forceinline__ uint32_t __getSIMDId() {
     #ifdef __HIP_PLATFORM_AMD__
     // Read HW_ID into an SGPR, then extract fields.
     uint32_t hwid;
+    asm volatile ("s_getreg_b32 %0, hwreg(HW_REG_HW_ID1)" : "=s"(hwid));
+
+    // waveId = bits [3:0]  (scheduler's wave slot within a SIMD)
+    // simdId = bits [5:4]  (which SIMD within the CU)
+    //const uint32_t waveId =  hwid        & 0xF;   // [0..15]
+    const uint32_t simdId = (hwid >> 4)  & 0x3;   // [0..3]
+
+    return simdId;  
+    #elif 0
+    // Read HW_ID into an SGPR, then extract fields.
+    uint32_t hwid;
     asm volatile ("s_getreg_b32 %0, hwreg(HW_REG_HW_ID)" : "=s"(hwid));
 
     // waveId = bits [3:0]  (scheduler's wave slot within a SIMD)
@@ -187,6 +198,12 @@ __device__ __forceinline__ uint64_t __timer() {
     #endif
 
     #ifdef __HIP_PLATFORM_AMD__
+    uint32_t clock;
+    __asm__ volatile (
+        "s_getreg_b32 %0, hwreg(HW_REG_SHADER_CYCLES_LO)\n\t"
+        : "=s" (clock) );
+    return clock;
+    #elif 0
     uint64_t clock;
     __asm__ volatile (
         "s_memtime %0\n\t" 
@@ -211,6 +228,20 @@ __device__ __forceinline__ uint32_t __forceBypassAllCacheReads(uint32_t *baseAdd
     uint64_t addr = reinterpret_cast<uint64_t>(baseAddress) + uint64_t(index) * sizeof(uint32_t);
 
     #ifdef __HIP_PLATFORM_AMD__
+    __asm__ volatile(
+        // Flat-Load with GLC=1 and SLC=1: Bypasses L1 and L2
+        // "flat_load_dword %0, %1 " GLC_SLC 
+        "flat_load_dword %0, %1 " 
+        #if defined(__gfx942__) || defined(__gfx941__) || defined(__gfx940__)
+        " nt" // Only on CDNA3(+)
+        #endif
+         " \n\t"
+        // Wait for VMEM
+        "s_waitcnt vmcnt(0)\n\t"
+        : "=v"(result) 
+        : "v"(addr) 
+    );
+    #elif 0
     __asm__ volatile(
         // Flat-Load with GLC=1 and SLC=1: Bypasses L1 and L2
         "flat_load_dword %0, %1 " GLC_SLC 
@@ -251,6 +282,18 @@ __device__ __forceinline__ uint32_t __forceL1MissRead(uint32_t *baseAddress, uin
     uint64_t addr = reinterpret_cast<uint64_t>(baseAddress) + uint64_t(index) * sizeof(uint32_t);
 
     #ifdef __HIP_PLATFORM_AMD__
+    __asm__ volatile(
+        // Flat loading with GLC=1 forces L1 miss, therefore reading from L2
+        // "flat_load_dword %0, %1 " GLC "\n\t"
+        "flat_load_dword %0, %1 \n\t" // index = *addr;
+        // Wait untill VMEM is finished
+        "s_waitcnt vmcnt(0)\n\t"
+        : "=v"(result)              // Output in VGPR
+        : "v"(addr)                 // Address in VGPR
+        : "memory"
+    );
+
+    #elif 0
     __asm__ volatile(
         // Flat loading with GLC=1 forces L1 miss, therefore reading from L2
         "flat_load_dword %0, %1 " GLC "\n\t"
@@ -325,6 +368,14 @@ __device__ __forceinline__ uint32_t __l3Read(uint32_t *baseAddress, uint32_t ind
     uint64_t addr = reinterpret_cast<uint64_t>(baseAddress) + uint64_t(index) * sizeof(uint32_t);
 
     #ifdef __HIP_PLATFORM_AMD__
+    __asm__ volatile(
+        "flat_load_b32 %0, %1\n\t"
+        "s_wait_loadcnt 0\n\t"
+        : "=v"(result)
+        : "v"(addr)
+        : "memory"
+    );
+    #elif
     __asm__ volatile(
         "flat_load_dword %0, %1 " GLC_SLC "\n\t"
         "s_waitcnt vmcnt(0)\n\t"

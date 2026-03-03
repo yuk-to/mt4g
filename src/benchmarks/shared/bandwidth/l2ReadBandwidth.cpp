@@ -35,6 +35,13 @@ __global__ void l2ReadBandwidthKernel(uint32v4* __restrict__ dst, uint32v4* __re
 
             #ifdef __HIP_PLATFORM_AMD__
             asm volatile(
+                "flat_load_dwordx4 %0, %1 \n" 
+                : "=v"(loaded) // uint32v4
+                : "v"(src + i) // uint32v4*
+                : "memory"
+            );
+            #elif 0
+            asm volatile(
                 "flat_load_dwordx4 %0, %1 " GLC "\n" 
                 : "=v"(loaded) // uint32v4
                 : "v"(src + i) // uint32v4*
