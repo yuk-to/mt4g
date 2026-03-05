@@ -24,7 +24,7 @@
    * Thus we branch using __gfx94[0‑2] to select "sc1" vs "glc" so our inline ASM
    * always matches the AMD backend's expected modifier syntax.
    */
-    #if defined(__gfx942__) || defined(__gfx941__) || defined(__gfx940__)
+    #if defined(__gfx942__) || defined(__gfx941__) || defined(__gfx940__) || defined(__gfx950__)
         #define GLC     "sc1"
         #define GLC_SLC "sc0 sc1"
     #else
@@ -214,7 +214,7 @@ __device__ __forceinline__ uint32_t __forceBypassAllCacheReads(uint32_t *baseAdd
     __asm__ volatile(
         // Flat-Load with GLC=1 and SLC=1: Bypasses L1 and L2
         "flat_load_dword %0, %1 " GLC_SLC 
-        #if defined(__gfx942__) || defined(__gfx941__) || defined(__gfx940__)
+        #if defined(__gfx942__) || defined(__gfx941__) || defined(__gfx940__) || defined(__gfx950__)
         " nt" // Only on CDNA3(+)
         #endif
          " \n\t"
