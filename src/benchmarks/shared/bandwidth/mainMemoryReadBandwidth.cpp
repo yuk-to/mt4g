@@ -33,6 +33,7 @@ __global__ void mainMemoryReadBandwidthKernel(uint32v4* __restrict__ dst, uint32
         #ifdef __HIP_PLATFORM_AMD__
         asm volatile(
             "flat_load_dwordx4 %0, %1\n" 
+            "s_waitcnt lgkmcnt(0)\n\t"
             : "=v"(loaded) // uint32v4
             : "s"(src + i) // uint32v4*
             :
